@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Tambola Host Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { font-family: Arial; padding: 10px; }
+    button { padding: 10px; margin: 5px; }
+    .board { font-size: 20px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+<h2>Host Dashboard</h2>
+
+<label>Max Tickets (1-30):</label>
+<input type="number" id="maxTickets" min="1" max="30" value="30">
+
+<br><br>
+
+<button onclick="startGame()">Start Game</button>
+<button onclick="endGame()">End Game</button>
+
+<h3>Current Number:</h3>
+<div id="currentNumber">-</div>
+
+<h3>Called Numbers:</h3>
+<div id="history"></div>
+
+<script>
+const socket = io();
+
+socket.on("update", (data) => {
+  document.getElementById("currentNumber").innerText =
+    data.currentNumber || "-";
+
+  document.getElementById("history").innerText =
+    data.calledNumbers.join(", ");
+});
+
+function startGame() {
+  socket.emit("startGame");
+}
+
+function endGame() {
+  socket.emit("endGame");
+}
+</script>
+
+</body>
+</html>

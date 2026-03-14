@@ -1,0 +1,138 @@
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const fs = require("fs");
+const cors = require("cors");
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static("../client"));
+
+const DATA_FILE = "../data/gameState.json";
+
+let gameState = {
+  status: "NOT_STARTED",
+  maxTickets: 30,
+  tickets: [],
+  calledNumbers: [],
+  currentNumber: null
+};
+
+if (fs.existsSync(DATA_FILE)) {
+  gameState = JSON.parse(fs.readFileSync(DATA_FILE));
+}
+
+function saveState() {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(gameState, null, 2));
+}
+
+function generateTicket(id, playerName) {
+  let numbers = [];
+
+  while (numbers.length < 15) {
+    let num = Math.floor(Math.random() * 90) + 1;
+    if (!numbers.includes(num)) {
+      numbers.push(num);
+    }
+  }
+
+  return {
+    id,
+    playerName,
+    numbers,
+    marked: []
+  };
+}
+
+function generateNumbers() {
+  return Array.from({ length: 90 }, (_, i) => i + 1)
+    .sort(() => Math.random() - 0.5);
+}
+
+let numberPool = [];
+let interval = null;
+
+function startCalling() {
+  interval = setInterval(() => {
+    if (numberPool.length === 0) {
+      clearInterval(interval);
+      gameState.status = "ENDED";
+      saveState();
+      io.emit("update", gameState);
+      return;
+    }
+
+    const next = numberPool.pop();
+    gameState.calledNumbers.push(next);
+    gameState.currentNumber = next;
+
+    // Auto mark numbers
+    gameState.tickets.forEach(ticket => {
+      if (ticket.numbers.includes(next)) {
+        ticket.marked.push(next);
+      }
+    });
+
+    saveState();
+    io.emit("update", gameState);
+
+  }, 3000);
+}
+
+io.on("connection", (socket) => {
+
+  socket.emit("update", gameState);
+
+  socket.on("setMaxTickets", (value) => {
+    if (gameState.status === "NOT_STARTED") {
+      gameState.maxTickets = Math.min(30, Math.max(1, value));
+      saveState();
+      io.emit("update", gameState);
+    }
+  });
+
+  socket.on("bookTicket", (playerName) => {
+    if (gameState.status !== "NOT_STARTED") return;
+
+    if (gameState.tickets.length >= gameState.maxTickets) return;
+
+    const ticket = generateTicket(
+      gameState.tickets.length + 1,
+      playerName
+    );
+
+    gameState.tickets.push(ticket);
+    saveState();
+    io.emit("update", gameState);
+  });
+
+  socket.on("startGame", () => {
+    if (gameState.status !== "RUNNING") {
+      numberPool = generateNumbers();
+      gameState.calledNumbers = [];
+      gameState.currentNumber = null;
+      gameState.status = "RUNNING";
+      startCalling();
+      saveState();
+      io.emit("update", gameState);
+    }
+  });
+
+  socket.on("endGame", () => {
+    gameState.status = "ENDED";
+    clearInterval(interval);
+    saveState();
+    io.emit("update", gameState);
+  });
+
+});
+
+server.listen(3000, () => {
+  console.log("Tambola server running on port 3000");
+});;
+
+
