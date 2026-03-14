@@ -1,18 +1,13 @@
 {
+  {
   "name": "tambola-system",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Tambola system",
+  "main": "server/server.js",
   "scripts": {
-    "start": "node index.js"
-  }
-}
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "socket.io": "^4.8.3"
+    "start": "node server/server.js"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
